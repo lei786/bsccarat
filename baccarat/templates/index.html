@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>預測系統</title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(10, 40px);
+            gap: 5px;
+            justify-content: center;
+            margin: 20px 0;
+            position: relative;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            border: 1px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .player { background-color: blue; color: white; }
+        .banker { background-color: red; color: white; }
+        .tie { background-color: green; color: white; }
+        .popup {
+            position: absolute;
+            background-color: black;
+            border: 1px solid white;
+            padding: 5px;
+            display: none;
+        }
+        .popup button {
+            background-color: white;
+            color: black;
+            border: none;
+            margin: 2px;
+            cursor: pointer;
+            padding: 5px;
+        }
+        .popup button:hover {
+            background-color: gray;
+        }
+    </style>
+    <script>
+        let popup;
+
+        function updateCell(cell, event) {
+            // 獲取滑鼠的位置
+            const x = event.clientX;
+            const y = event.clientY;
+
+            // 顯示彈窗
+            popup.style.display = "block";
+            popup.style.left = `${x}px`;
+            popup.style.top = `${y}px`;
+
+            // 清除舊的按鈕事件
+            popup.innerHTML = "";
+
+            // 添加莊、閒、和按鈕
+            ["閒", "莊", "和"].forEach(result => {
+                const button = document.createElement("button");
+                button.textContent = result;
+                button.onclick = () => {
+                    if (result === "閒") {
+                        cell.classList.add("player");
+                        cell.textContent = "閒";
+                    } else if (result === "莊") {
+                        cell.classList.add("banker");
+                        cell.textContent = "莊";
+                    } else if (result === "和") {
+                        cell.classList.add("tie");
+                        cell.textContent = "和";
+                    }
+                    updateRoadmap(result);
+                    popup.style.display = "none"; // 隱藏彈窗
+                };
+                popup.appendChild(button);
+            });
+        }
+
+        async function updateRoadmap(result) {
+            await fetch("/update_roadmap", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ result: result }),
+            });
+        }
+
+        async function calculateAMP() {
+            const cards = document.getElementById("ampInput").value.split(" ");
+            const response = await fetch("/calculate_amp", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ cards: cards }),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById("results").innerHTML = `
+                    <p>閒家 A M P 點數：${data.player_amp}</p>
+                    <p>莊家 A M P 點數：${data.banker_amp}</p>
+                    <p>閒家勝率：${data.player_win_rate}%</p>
+                    <p>莊家勝率：${data.banker_win_rate}%</p>
+                    <p>和局率：${data.tie_rate}%</p>
+                `;
+            } else {
+                alert(data.error);
+            }
+        }
+
+        window.onload = () => {
+            popup = document.createElement("div");
+            popup.className = "popup";
+            document.body.appendChild(popup);
+        };
+    </script>
+</head>
+<body>
+    <h1>預測系統</h1>
+    <p>系統不是百分之百準確，只提供概率</p>
+    <p>投資與賭博一線之隔，請自行評估</p>
+
+    <div class="grid">
+        <!-- 大路規則表格 -->
+        <script>
+            for (let i = 0; i < 50; i++) {
+                document.write('<div class="cell" onclick="updateCell(this, event)"></div>');
+            }
+        </script>
+    </div>
+
+    <h2>輸入 AMP 撲克牌點數</h2>
+    <input type="text" id="ampInput" placeholder="例如：4 7 8 J K Z">
+    <button onclick="calculateAMP()">預測下一把</button>
+
+    <div id="results"></div>
+</body>
+</html>
